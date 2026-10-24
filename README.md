@@ -27,9 +27,10 @@ Pulseboard shows the last 60 seconds of event traffic across four live views:
 - **Top services** — volume, p95 latency, and error counts per service
 - **Event stream** — a rolling, newest-first feed of individual events
 
-The header shows connection state, ingest source, subscriber count, uptime, and a UTC clock.
-A control bar lets you change the simulated ingest rate, pause rendering, inject an error
-spike, trigger a traffic surge, or reset the demo data.
+The header shows connection state, ingest source, subscriber count, uptime, a UTC clock, and
+a light/dark theme switcher (persisted in `localStorage`). A control bar lets you change the
+simulated ingest rate, pause rendering, inject an error spike, trigger a traffic surge, or
+reset the demo data.
 
 ### Real-time pipeline
 

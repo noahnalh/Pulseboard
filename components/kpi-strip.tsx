@@ -1,7 +1,7 @@
 "use client";
 
 import { Database, Gauge, Timer, TriangleAlert } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   cn,
   formatCompact,
@@ -22,28 +22,29 @@ const ACCENTS = {
   emerald: {
     icon: "text-emerald-300",
     chip: "border-emerald-400/20 bg-emerald-400/10",
-    line: "#34d399",
+    line: "var(--chart-emerald)",
   },
   rose: {
     icon: "text-rose-300",
     chip: "border-rose-400/20 bg-rose-400/10",
-    line: "#fb7185",
+    line: "var(--chart-rose)",
   },
   amber: {
     icon: "text-amber-300",
     chip: "border-amber-400/20 bg-amber-400/10",
-    line: "#fbbf24",
+    line: "var(--chart-amber)",
   },
   cyan: {
     icon: "text-cyan-300",
     chip: "border-cyan-400/20 bg-cyan-400/10",
-    line: "#22d3ee",
+    line: "var(--chart-cyan)",
   },
 } as const;
 
 type AccentKey = keyof typeof ACCENTS;
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {
+  const gradientId = `spark-${useId().replace(/:/g, "")}`;
   const series = values.length > 1 ? values : [0, 0];
   const width = 108;
   const height = 28;
@@ -66,12 +67,12 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id={`spark-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity={0.28} />
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
-      <path d={area} fill={`url(#spark-${color.replace("#", "")})`} />
+      <path d={area} fill={`url(#${gradientId})`} />
       <path
         d={line}
         fill="none"
@@ -176,7 +177,7 @@ export function KpiStrip({ metrics, sparkline, meta }: KpiStripProps) {
             {metrics.activeServices} services
           </span>
         }
-        visual={<Sparkline values={sparkline} color="#34d399" />}
+        visual={<Sparkline values={sparkline} color="var(--chart-emerald)" />}
       />
 
       <MetricCard
@@ -229,7 +230,7 @@ export function KpiStrip({ metrics, sparkline, meta }: KpiStripProps) {
             {meta?.subscribers ?? 1} live
           </span>
         }
-        visual={<Sparkline values={sparkline} color="#22d3ee" />}
+        visual={<Sparkline values={sparkline} color="var(--chart-cyan)" />}
       />
     </div>
   );

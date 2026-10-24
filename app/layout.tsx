@@ -13,10 +13,15 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+const themeScript = `(function(){try{var t=localStorage.getItem("pulseboard-theme");var l=t==="light";if(l){document.documentElement.classList.add("light");document.documentElement.style.colorScheme="light";}var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",l?"#eef2f7":"#04060a");}}catch(e){}})();`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {children}
+      </body>
     </html>
   );
 }

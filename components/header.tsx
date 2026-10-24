@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { Activity, Pause, Play, Radio, Users } from "lucide-react";
 import { cn, formatClock } from "@/lib/format";
 import type { ConnectionState, StreamMeta } from "@/lib/types";
+import { ThemeToggle } from "./theme-toggle";
 
 interface HeaderProps {
   status: ConnectionState;
@@ -124,6 +125,8 @@ export function Header({ status, paused, meta, onTogglePause }: HeaderProps) {
         <span className="hidden rounded-full border border-edge bg-ink-850 px-2.5 py-1 md:inline-flex">
           <UtcClock />
         </span>
+
+        <ThemeToggle />
 
         <button
           type="button"

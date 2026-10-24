@@ -19,9 +19,9 @@ interface LatencyChartProps {
 }
 
 const SERIES = [
-  { key: "p50", label: "p50", color: "#34d399" },
-  { key: "p95", label: "p95", color: "#fbbf24" },
-  { key: "p99", label: "p99", color: "#fb7185" },
+  { key: "p50", label: "p50", color: "var(--chart-emerald)" },
+  { key: "p95", label: "p95", color: "var(--chart-amber)" },
+  { key: "p99", label: "p99", color: "var(--chart-rose)" },
 ] as const;
 
 export const LatencyChart = memo(function LatencyChart({ data }: LatencyChartProps) {
@@ -51,11 +51,11 @@ export const LatencyChart = memo(function LatencyChart({ data }: LatencyChartPro
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 4, left: -10, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="rgba(148,163,184,0.08)" strokeDasharray="3 5" />
+              <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 5" />
               <XAxis
                 dataKey="t"
                 tickFormatter={(value: number) => formatAxisTime(value)}
-                tick={{ fill: "#5b6b80", fontSize: 9, fontFamily: "var(--font-mono)" }}
+                tick={{ fill: "var(--chart-axis)", fontSize: 9, fontFamily: "var(--font-mono)" }}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={48}
@@ -63,7 +63,7 @@ export const LatencyChart = memo(function LatencyChart({ data }: LatencyChartPro
               />
               <YAxis
                 tickFormatter={(value: number) => formatLatency(value)}
-                tick={{ fill: "#5b6b80", fontSize: 9, fontFamily: "var(--font-mono)" }}
+                tick={{ fill: "var(--chart-axis)", fontSize: 9, fontFamily: "var(--font-mono)" }}
                 tickLine={false}
                 axisLine={false}
                 width={52}
@@ -72,7 +72,7 @@ export const LatencyChart = memo(function LatencyChart({ data }: LatencyChartPro
               />
               <Tooltip
                 content={<ChartTooltip unit="ms" />}
-                cursor={{ stroke: "rgba(148,163,184,0.18)", strokeWidth: 1 }}
+                cursor={{ stroke: "var(--chart-cursor)", strokeWidth: 1 }}
               />
               {SERIES.map((series) => (
                 <Line

@@ -97,28 +97,28 @@ const STATUS_TONES: Record<StatusClass, StatusTone> = {
     text: "text-emerald-300",
     chip: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
     dot: "bg-emerald-400",
-    hex: "#34d399",
+    hex: "var(--chart-emerald)",
   },
   "3xx": {
     label: "Redirect",
     text: "text-sky-300",
     chip: "border-sky-400/20 bg-sky-400/10 text-sky-300",
     dot: "bg-sky-400",
-    hex: "#38bdf8",
+    hex: "var(--chart-sky)",
   },
   "4xx": {
     label: "Client err",
     text: "text-amber-300",
     chip: "border-amber-400/20 bg-amber-400/10 text-amber-300",
     dot: "bg-amber-400",
-    hex: "#fbbf24",
+    hex: "var(--chart-amber)",
   },
   "5xx": {
     label: "Server err",
     text: "text-rose-300",
     chip: "border-rose-400/20 bg-rose-400/10 text-rose-300",
     dot: "bg-rose-400",
-    hex: "#fb7185",
+    hex: "var(--chart-rose)",
   },
 };
 

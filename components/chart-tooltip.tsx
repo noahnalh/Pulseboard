@@ -23,7 +23,7 @@ export function ChartTooltip({ active, payload, label, unit = "count" }: ChartTo
   const rows = payload.filter((item) => typeof item.value === "number");
 
   return (
-    <div className="min-w-[160px] rounded-lg border border-edge-bright bg-ink-900/95 px-3 py-2 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.9)] backdrop-blur">
+    <div className="min-w-[160px] rounded-lg border border-edge-bright bg-ink-900/95 px-3 py-2 shadow-[0_16px_40px_-16px_var(--tooltip-shadow)] backdrop-blur">
       <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-slate-500">
         {Number.isFinite(timestamp) ? `${formatFullTime(timestamp)} UTC` : "—"}
       </div>

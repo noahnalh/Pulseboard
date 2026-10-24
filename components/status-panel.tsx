@@ -36,7 +36,7 @@ export const StatusPanel = memo(function StatusPanel({ status, metrics }: Status
                   <Cell key={slice.name} fill={STATUS_TONES[slice.name].hex} fillOpacity={0.9} />
                 ))
               ) : (
-                <Cell fill="rgba(148,163,184,0.12)" />
+                <Cell fill="var(--chart-muted)" />
               )}
             </Pie>
           </PieChart>

@@ -66,19 +66,19 @@ export const ThroughputChart = memo(function ThroughputChart({ data }: Throughpu
             <AreaChart data={chartData} margin={{ top: 10, right: 4, left: -14, bottom: 0 }}>
               <defs>
                 <linearGradient id="throughput-success" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#34d399" stopOpacity={0.34} />
-                  <stop offset="100%" stopColor="#34d399" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="var(--chart-emerald)" stopOpacity={0.34} />
+                  <stop offset="100%" stopColor="var(--chart-emerald)" stopOpacity={0.02} />
                 </linearGradient>
                 <linearGradient id="throughput-errors" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#fb7185" stopOpacity={0.6} />
-                  <stop offset="100%" stopColor="#fb7185" stopOpacity={0.1} />
+                  <stop offset="0%" stopColor="var(--chart-rose)" stopOpacity={0.6} />
+                  <stop offset="100%" stopColor="var(--chart-rose)" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} stroke="rgba(148,163,184,0.08)" strokeDasharray="3 5" />
+              <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 5" />
               <XAxis
                 dataKey="t"
                 tickFormatter={(value: number) => formatAxisTime(value)}
-                tick={{ fill: "#5b6b80", fontSize: 9, fontFamily: "var(--font-mono)" }}
+                tick={{ fill: "var(--chart-axis)", fontSize: 9, fontFamily: "var(--font-mono)" }}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={44}
@@ -86,7 +86,7 @@ export const ThroughputChart = memo(function ThroughputChart({ data }: Throughpu
               />
               <YAxis
                 tickFormatter={(value: number) => formatCompact(value)}
-                tick={{ fill: "#5b6b80", fontSize: 9, fontFamily: "var(--font-mono)" }}
+                tick={{ fill: "var(--chart-axis)", fontSize: 9, fontFamily: "var(--font-mono)" }}
                 tickLine={false}
                 axisLine={false}
                 width={44}
@@ -94,29 +94,29 @@ export const ThroughputChart = memo(function ThroughputChart({ data }: Throughpu
               />
               <Tooltip
                 content={<ChartTooltip />}
-                cursor={{ stroke: "rgba(148,163,184,0.18)", strokeWidth: 1 }}
+                cursor={{ stroke: "var(--chart-cursor)", strokeWidth: 1 }}
               />
               <Area
                 type="monotone"
                 dataKey="successful"
                 name="Successful"
                 stackId="traffic"
-                stroke="#34d399"
+                stroke="var(--chart-emerald)"
                 strokeWidth={1.4}
                 fill="url(#throughput-success)"
                 isAnimationActive={false}
-                activeDot={{ r: 2.5, strokeWidth: 0, fill: "#6ee7b7" }}
+                activeDot={{ r: 2.5, strokeWidth: 0, fill: "var(--chart-emerald-soft)" }}
               />
               <Area
                 type="monotone"
                 dataKey="errors"
                 name="Errors"
                 stackId="traffic"
-                stroke="#fb7185"
+                stroke="var(--chart-rose)"
                 strokeWidth={1.2}
                 fill="url(#throughput-errors)"
                 isAnimationActive={false}
-                activeDot={{ r: 2.5, strokeWidth: 0, fill: "#fda4af" }}
+                activeDot={{ r: 2.5, strokeWidth: 0, fill: "var(--chart-rose-soft)" }}
               />
             </AreaChart>
           </ResponsiveContainer>

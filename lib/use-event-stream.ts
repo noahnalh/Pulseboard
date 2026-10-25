@@ -24,6 +24,7 @@ export interface EventStreamState {
   togglePause: () => void;
   setRate: (rate: number) => Promise<void>;
   trigger: (action: NonNullable<ControlPayload["action"]>) => Promise<void>;
+  acknowledgeAlert: (id: string) => Promise<void>;
 }
 
 export function useEventStream(): EventStreamState {
@@ -160,6 +161,18 @@ export function useEventStream(): EventStreamState {
     }
   }, []);
 
+  const acknowledgeAlert = useCallback(async (id: string) => {
+    try {
+      await fetch("/api/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    } catch {
+      // The next snapshot still carries the authoritative alert state.
+    }
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code !== "Space") return;
@@ -172,5 +185,5 @@ export function useEventStream(): EventStreamState {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
 
-  return { snapshot, events, status, paused, togglePause, setRate, trigger };
+  return { snapshot, events, status, paused, togglePause, setRate, trigger, acknowledgeAlert };
 }

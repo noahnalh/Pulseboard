@@ -1,7 +1,7 @@
 "use client";
 
-import { memo } from "react";
-import { Pause, Play, Radio } from "lucide-react";
+import { memo, useMemo, useState } from "react";
+import { Download, Pause, Play, Radio, Search, X } from "lucide-react";
 import {
   cn,
   formatFullTime,
@@ -26,6 +26,39 @@ function latencyClass(latency: number): string {
   if (latency >= 1_000) return "text-rose-300";
   if (latency >= 300) return "text-amber-300";
   return "text-slate-400";
+}
+
+function csvField(value: string | number): string {
+  const raw = String(value);
+  const text = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadCsv(events: TelemetryEvent[]): void {
+  const header = ["id", "timestamp", "status", "service", "route", "region", "latency_ms", "bytes"];
+  const rows = events.map((event) =>
+    [
+      event.id,
+      new Date(event.ts).toISOString(),
+      event.status,
+      event.service,
+      event.route,
+      event.region,
+      event.latencyMs,
+      event.bytes,
+    ]
+      .map(csvField)
+      .join(","),
+  );
+  const blob = new Blob([[header.join(","), ...rows].join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `pulseboard-events-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 const EventRow = memo(function EventRow({ event }: { event: TelemetryEvent }) {
@@ -72,6 +105,34 @@ const EventRow = memo(function EventRow({ event }: { event: TelemetryEvent }) {
 
 export function EventFeed({ events, status, paused, onTogglePause }: EventFeedProps) {
   const streaming = status === "live" || status === "connecting" || status === "reconnecting";
+  const [query, setQuery] = useState("");
+  const [service, setService] = useState("all");
+  const [errorsOnly, setErrorsOnly] = useState(false);
+
+  const services = useMemo(
+    () => [...new Set(events.map((event) => event.service))].sort(),
+    [events],
+  );
+  const activeService =
+    service === "all" || services.includes(service) ? service : "all";
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return events.filter((event) => {
+      if (activeService !== "all" && event.service !== activeService) return false;
+      if (errorsOnly && event.status < 500) return false;
+      if (!needle) return true;
+      return `${event.service} ${event.route} ${event.region} ${event.status} ${event.id}`
+        .toLowerCase()
+        .includes(needle);
+    });
+  }, [events, query, activeService, errorsOnly]);
+  const filtersActive = query.trim().length > 0 || activeService !== "all" || errorsOnly;
+
+  const clearFilters = () => {
+    setQuery("");
+    setService("all");
+    setErrorsOnly(false);
+  };
 
   return (
     <Panel
@@ -106,9 +167,83 @@ export function EventFeed({ events, status, paused, onTogglePause }: EventFeedPr
         </div>
       }
     >
+      <div className="flex flex-wrap items-center gap-2 border-t border-edge/60 bg-ink-900/35 px-4 py-2">
+        <label className="relative flex min-w-[150px] flex-1 items-center">
+          <Search className="pointer-events-none absolute left-2 h-3 w-3 text-slate-600" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Filter service, route, region…"
+            aria-label="Filter events"
+            className="h-7 w-full rounded-md border border-edge bg-ink-850 pl-7 pr-7 font-mono text-[10px] text-slate-300 placeholder:text-slate-600 focus:border-cyan-400/40 focus:outline-none focus:ring-1 focus:ring-cyan-400/15"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear event search"
+              className="absolute right-1.5 flex h-4 w-4 items-center justify-center rounded text-slate-600 transition-colors hover:text-slate-300"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          ) : null}
+        </label>
+
+        <select
+          value={activeService}
+          onChange={(event) => setService(event.target.value)}
+          aria-label="Filter by service"
+          className="h-7 max-w-[132px] rounded-md border border-edge bg-ink-850 px-2 font-mono text-[10px] text-slate-300 focus:border-cyan-400/40 focus:outline-none"
+        >
+          <option value="all">All services</option>
+          {services.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+
+        <button
+          type="button"
+          onClick={() => setErrorsOnly((value) => !value)}
+          aria-pressed={errorsOnly}
+          className={cn(
+            "h-7 rounded-md border px-2 font-mono text-[9px] uppercase tracking-[0.1em] transition-colors",
+            errorsOnly
+              ? "border-rose-400/30 bg-rose-400/10 text-rose-300"
+              : "border-edge bg-ink-850 text-slate-500 hover:border-edge-bright hover:text-slate-300",
+          )}
+        >
+          5xx only
+        </button>
+
+        {filtersActive ? (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="h-7 rounded-md px-1.5 font-mono text-[9px] text-slate-600 transition-colors hover:text-slate-300"
+          >
+            clear
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => downloadCsv(filtered)}
+          disabled={filtered.length === 0}
+          title="Download filtered events as CSV"
+          aria-label="Export filtered events as CSV"
+          className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-md border border-edge bg-ink-850 px-2 font-mono text-[9px] uppercase tracking-[0.1em] text-slate-400 transition-colors hover:border-edge-bright hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Download className="h-3 w-3" />
+          CSV
+        </button>
+      </div>
+
       <div
         className={cn(
-          "border-y border-edge/60 bg-ink-900/50 px-4 py-1.5 font-mono text-[8px] uppercase tracking-[0.16em] text-slate-600",
+          "border-b border-edge/60 bg-ink-900/50 px-4 py-1.5 font-mono text-[8px] uppercase tracking-[0.16em] text-slate-600",
           ROW_GRID,
         )}
       >
@@ -131,14 +266,29 @@ export function EventFeed({ events, status, paused, onTogglePause }: EventFeedPr
               POST to /api/ingest or let the simulator warm up.
             </p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+            <Search className="h-4 w-4 text-slate-700" />
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-600">
+              no matching events
+            </p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-mono text-[9px] text-cyan-400 underline-offset-2 hover:underline"
+            >
+              reset filters
+            </button>
+          </div>
         ) : (
-          events.map((event) => <EventRow key={event.id} event={event} />)
+          filtered.map((event) => <EventRow key={event.id} event={event} />)
         )}
       </div>
 
       <div className="flex items-center justify-between px-4 py-2 font-mono text-[8px] uppercase tracking-[0.14em] text-slate-600">
         <span>
-          {events.length} rows buffered
+          {filtersActive ? `${filtered.length} / ${events.length}` : events.length} rows
+          {filtersActive ? " matched" : " buffered"}
           {paused ? " · updates held" : ""}
         </span>
         <span className="inline-flex items-center gap-1.5">

@@ -5,20 +5,23 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import type { SeriesAnomaly } from "@/lib/detection";
 import { formatAxisTime, formatCompact, formatInteger } from "@/lib/format";
 import type { SeriesPoint } from "@/lib/types";
 import { ChartTooltip } from "./chart-tooltip";
 
 interface ThroughputChartProps {
   data: SeriesPoint[];
+  anomalies: Map<number, SeriesAnomaly>;
 }
 
-function ChartLegend() {
+function ChartLegend({ anomalyCount }: { anomalyCount: number }) {
   return (
     <div className="flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">
       <span className="inline-flex items-center gap-1.5">
@@ -29,11 +32,20 @@ function ChartLegend() {
         <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
         errors
       </span>
+      {anomalyCount > 0 ? (
+        <span className="inline-flex items-center gap-1.5 text-amber-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          {anomalyCount} anomalies
+        </span>
+      ) : null}
     </div>
   );
 }
 
-export const ThroughputChart = memo(function ThroughputChart({ data }: ThroughputChartProps) {
+export const ThroughputChart = memo(function ThroughputChart({
+  data,
+  anomalies,
+}: ThroughputChartProps) {
   const chartData = useMemo(
     () =>
       data.map((point) => ({
@@ -49,7 +61,7 @@ export const ThroughputChart = memo(function ThroughputChart({ data }: Throughpu
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <ChartLegend />
+        <ChartLegend anomalyCount={anomalies.size} />
         <span className="font-mono text-[10px] text-slate-500">
           latest{" "}
           <span className="text-slate-300">{latest ? formatInteger(latest.eps) : "—"}</span> ev/s
@@ -75,6 +87,15 @@ export const ThroughputChart = memo(function ThroughputChart({ data }: Throughpu
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 5" />
+              {[...anomalies.values()].map((anomaly) => (
+                <ReferenceLine
+                  key={anomaly.t}
+                  x={anomaly.t}
+                  stroke="var(--chart-amber)"
+                  strokeDasharray="2 4"
+                  strokeOpacity={0.55}
+                />
+              ))}
               <XAxis
                 dataKey="t"
                 tickFormatter={(value: number) => formatAxisTime(value)}

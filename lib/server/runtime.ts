@@ -5,15 +5,18 @@ import type {
   StatusClass,
   StatusSlice,
   StreamMeta,
+  StreamMetrics,
   StreamSnapshot,
   TelemetryEvent,
 } from "@/lib/types";
+import { AlertManager } from "./alerts";
 import { generateEvent } from "./generator";
 import { startKafka, type KafkaHandle, type KafkaMode, type KafkaStatus } from "./kafka";
 
 const RING_LIMIT = 12_000;
 const WINDOW_SECONDS = 60;
 const BUCKET_RETENTION_SECONDS = 240;
+const SERIES_SECONDS = 240;
 const FEED_BATCH_LIMIT = 60;
 const MAX_LATENCIES_PER_BUCKET = 8_000;
 const SNAPSHOT_INTERVAL_MS = 1_000;
@@ -64,6 +67,7 @@ class Runtime {
   private subscriberSeq = 0;
   private totalEvents = 0;
   private startedAt = Date.now();
+  private alerts = new AlertManager();
 
   private targetRate: number;
   private simCarry = 0;
@@ -191,6 +195,12 @@ class Runtime {
     return this.targetRate;
   }
 
+  acknowledgeAlert(id: string): boolean {
+    const acknowledged = this.alerts.acknowledge(id);
+    if (acknowledged) this.broadcastSnapshot();
+    return acknowledged;
+  }
+
   trigger(action: "error-spike" | "traffic-surge" | "reset"): void {
     const now = Date.now();
     if (action === "error-spike") {
@@ -219,6 +229,7 @@ class Runtime {
     this.startedAt = Date.now();
     this.errorBoostUntil = 0;
     this.surgeUntil = 0;
+    this.alerts.reset();
     this.prefill(45);
     this.broadcastSnapshot();
   }
@@ -258,7 +269,7 @@ class Runtime {
 
   private buildSeries(nowSec: number): SeriesPoint[] {
     const points: SeriesPoint[] = [];
-    for (let offset = WINDOW_SECONDS; offset >= 1; offset -= 1) {
+    for (let offset = SERIES_SECONDS; offset >= 1; offset -= 1) {
       const second = nowSec - offset;
       const bucket = this.buckets.get(second);
       if (!bucket) {
@@ -368,26 +379,52 @@ class Runtime {
       startedAt: this.startedAt,
     };
 
+    const metrics: StreamMetrics = {
+      eventsPerSec,
+      totalEvents: this.totalEvents,
+      errorRate,
+      successRate: 100 - errorRate,
+      p50: percentile(latencies, 50),
+      p95: percentile(latencies, 95),
+      p99: percentile(latencies, 99),
+      peakEps,
+      activeServices: serviceMap.size,
+      errorCount,
+      windowEvents: window.length,
+    };
+
+    const alertWindow = this.windowEvents(15);
+    let alertErrorCount = 0;
+    const alertLatencies: number[] = [];
+    for (const event of alertWindow) {
+      if (event.status >= 500) alertErrorCount += 1;
+      alertLatencies.push(event.latencyMs);
+    }
+    alertLatencies.sort((a, b) => a - b);
+    const alertSeries = series.slice(-15);
+    const alertEps = Math.round(
+      alertSeries.reduce((sum, point) => sum + point.eps, 0) / Math.max(1, alertSeries.length),
+    );
+
+    this.alerts.evaluate({
+      now,
+      targetRate: this.targetRate,
+      metrics: {
+        errorRate: alertWindow.length ? (alertErrorCount / alertWindow.length) * 100 : 0,
+        p95: percentile(alertLatencies, 95),
+        eventsPerSec: alertEps,
+      },
+    });
+
     return {
       now,
-      metrics: {
-        eventsPerSec,
-        totalEvents: this.totalEvents,
-        errorRate,
-        successRate: 100 - errorRate,
-        p50: percentile(latencies, 50),
-        p95: percentile(latencies, 95),
-        p99: percentile(latencies, 99),
-        peakEps,
-        activeServices: serviceMap.size,
-        errorCount,
-        windowEvents: window.length,
-      },
+      metrics,
       sparkline,
       series,
       status,
       services,
       regions,
+      alerts: this.alerts.snapshot(),
       meta,
     };
   }
@@ -450,6 +487,7 @@ class Runtime {
       subscribers: this.subscribers.size,
       buckets: this.buckets.size,
       targetRate: this.targetRate,
+      activeAlerts: this.alerts.snapshot().active.length,
       latestEventAt: latest ? new Date(latest.event.ts).toISOString() : null,
       uptimeSec: Math.max(0, Math.round((Date.now() - this.startedAt) / 1_000)),
       kafka: { mode: this.kafkaMode, status: this.kafkaStatus },

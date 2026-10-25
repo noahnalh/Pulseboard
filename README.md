@@ -18,19 +18,39 @@ command. It can also consume real telemetry from Kafka or from any HTTP producer
 
 ## What it does
 
-Pulseboard shows the last 60 seconds of event traffic across four live views:
+Pulseboard shows live event traffic across the following views:
 
 - **Throughput** — successful and failed events per second
 - **Latency percentiles** — p50, p95, and p99 response times
 - **Response mix** — share of 2xx, 3xx, 4xx, and 5xx responses
 - **Edge regions** — request volume and 5xx rate by region
 - **Top services** — volume, p95 latency, and error counts per service
-- **Event stream** — a rolling, newest-first feed of individual events
+- **Event stream** — a rolling, newest-first feed with search, service/5xx filters, and CSV export
+- **Alert center** — server-side threshold rules with severity, acknowledgment, and resolution history
 
-The header shows connection state, ingest source, subscriber count, uptime, a UTC clock, and
-a light/dark theme switcher (persisted in `localStorage`). A control bar lets you change the
-simulated ingest rate, pause rendering, inject an error spike, trigger a traffic surge, or
-reset the demo data.
+KPIs and service/region aggregations use a 60-second window. The charts can switch between
+60-second, 2-minute, and 4-minute windows, and they mark statistical anomalies using a robust
+z-score against a trailing baseline.
+
+The header shows connection state, ingest source, subscriber count, uptime, a UTC clock, an
+active-alert badge, and a light/dark theme switcher (persisted in `localStorage`). A control
+bar lets you change the simulated ingest rate, chart window, pause rendering, inject an error
+spike, trigger a traffic surge, or reset the demo data.
+
+### Alert engine
+
+Snapshots carry alerts evaluated by the server every second. Rules promote after consecutive
+samples and resolve after two clear samples to avoid flapping:
+
+| Rule | Warning | Critical |
+| --- | --- | --- |
+| 5xx error rate | 5% | 12% |
+| p95 latency | 450 ms | 900 ms |
+| Throughput vs target | 1.5x | 1.9x |
+
+Alerts can be acknowledged from the alert center. Acknowledgment does not resolve the alert;
+it remains visible until the underlying metric recovers. Recent resolved alerts are retained
+for the session.
 
 ### Real-time pipeline
 
@@ -48,8 +68,11 @@ Server-side aggregation keeps the browser workload flat even as event volume ris
 - A 12,000-event ring buffer feeds the live table and per-service/region aggregations.
 - Per-second buckets retain 240 seconds of counts and latency samples for percentile charts.
 - Snapshots are serialized once per tick and broadcast to every connected client.
+- The alert engine evaluates rolling 15-second metrics in the same snapshot tick, so short
+  incidents are not hidden by the 60-second dashboard averages.
 - The client parses frames with `EventSource`, batches React updates with
   `requestAnimationFrame`, deduplicates replayed events, and caps the event feed at 220 rows.
+- Event filtering and CSV export run entirely in the browser over the capped feed.
 - Rows and charts are memoized, and chart animations are disabled to avoid rendering spikes.
 
 Kafka is optional and works in two modes:
@@ -175,6 +198,8 @@ NDJSON and newline-delimited JSON are supported with
 | `GET` | `/api/snapshot` | Current aggregated snapshot |
 | `POST` | `/api/control` | Set rate or trigger a scenario |
 | `GET` | `/api/control` | Read the current rate and available actions |
+| `GET` | `/api/alerts` | Read active and recently resolved alerts |
+| `POST` | `/api/alerts` | Acknowledge an active alert by `id` |
 | `GET` | `/api/health` | Runtime health, buffer size, subscriber count, Kafka state |
 
 Control examples:
@@ -190,6 +215,14 @@ curl -X POST http://localhost:3000/api/control \
 ```
 
 Actions: `error-spike`, `traffic-surge`, `reset`.
+
+Acknowledge an alert using the `id` returned by `GET /api/alerts` (or from a snapshot):
+
+```bash
+curl -X POST http://localhost:3000/api/alerts \
+  -H "Content-Type: application/json" \
+  -d '{"id":"alert-error-rate-1760000000000"}'
+```
 
 ## Configuration
 
@@ -220,6 +253,7 @@ Actions: `error-spike`, `traffic-surge`, `reset`.
 ```
 app/
   api/
+    alerts/         alert state + acknowledgment
     control/        rate + scenario controls
     health/         runtime health
     ingest/         HTTP/NDJSON ingestion
@@ -236,14 +270,17 @@ components/
   status-panel.tsx
   services-panel.tsx
   regions-panel.tsx
-  event-feed.tsx
-  control-bar.tsx
+  event-feed.tsx    search, filters, CSV export
+  alert-center.tsx  alert banner + center drawer
+  control-bar.tsx   rate, chart window, scenarios
 lib/
   server/
+    alerts.ts       threshold rules + alert lifecycle
     generator.ts    realistic event simulator
     normalize.ts    loosely-shaped log normalization
     runtime.ts      buffers, aggregation, SSE fan-out
     kafka.ts        optional Kafka producer/consumer bridge
+  detection.ts      robust z-score anomaly detection
   use-event-stream.ts
   format.ts
   types.ts

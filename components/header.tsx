@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Activity, Pause, Play, Radio, Users } from "lucide-react";
+import { Activity, Pause, Play, Radio, ShieldAlert, Users } from "lucide-react";
 import { cn, formatClock } from "@/lib/format";
 import type { ConnectionState, StreamMeta } from "@/lib/types";
 import { ThemeToggle } from "./theme-toggle";
@@ -10,6 +10,9 @@ interface HeaderProps {
   status: ConnectionState;
   paused: boolean;
   meta: StreamMeta | null;
+  alertCount: number;
+  criticalAlerts: number;
+  onOpenAlerts: () => void;
   onTogglePause: () => void;
 }
 
@@ -60,7 +63,15 @@ function UtcClock() {
   );
 }
 
-export function Header({ status, paused, meta, onTogglePause }: HeaderProps) {
+export function Header({
+  status,
+  paused,
+  meta,
+  alertCount,
+  criticalAlerts,
+  onOpenAlerts,
+  onTogglePause,
+}: HeaderProps) {
   const statusUi = STATUS_UI[status];
   const kafkaSource = !meta
     ? "ingest"
@@ -125,6 +136,24 @@ export function Header({ status, paused, meta, onTogglePause }: HeaderProps) {
         <span className="hidden rounded-full border border-edge bg-ink-850 px-2.5 py-1 md:inline-flex">
           <UtcClock />
         </span>
+
+        <button
+          type="button"
+          onClick={onOpenAlerts}
+          aria-label={`Open alert center, ${alertCount} active alerts`}
+          title={alertCount > 0 ? `${alertCount} active alerts` : "Alert center"}
+          className={cn(
+            "inline-flex h-[30px] items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-semibold transition-colors",
+            criticalAlerts > 0
+              ? "border-rose-400/30 bg-rose-400/10 text-rose-300 hover:bg-rose-400/15"
+              : alertCount > 0
+                ? "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/15"
+                : "border-edge bg-ink-850 text-slate-400 hover:border-edge-bright hover:text-white",
+          )}
+        >
+          <ShieldAlert className="h-3.5 w-3.5" />
+          <span className="tabular-nums">{alertCount}</span>
+        </button>
 
         <ThemeToggle />
 

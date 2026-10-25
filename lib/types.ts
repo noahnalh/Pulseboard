@@ -38,6 +38,28 @@ export interface RegionStat {
   errorRate: number;
 }
 
+export type AlertRule = "error-rate" | "latency-p95" | "throughput-surge";
+export type AlertSeverity = "warning" | "critical";
+
+export interface TelemetryAlert {
+  id: string;
+  rule: AlertRule;
+  severity: AlertSeverity;
+  title: string;
+  detail: string;
+  value: number;
+  threshold: number;
+  startedAt: number;
+  updatedAt: number;
+  acknowledgedAt: number | null;
+  endedAt?: number;
+}
+
+export interface AlertState {
+  active: TelemetryAlert[];
+  recent: TelemetryAlert[];
+}
+
 export interface StreamMetrics {
   eventsPerSec: number;
   totalEvents: number;
@@ -69,6 +91,7 @@ export interface StreamSnapshot {
   status: StatusSlice[];
   services: ServiceStat[];
   regions: RegionStat[];
+  alerts: AlertState;
   meta: StreamMeta;
 }
 

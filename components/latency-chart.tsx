@@ -5,17 +5,20 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import type { SeriesAnomaly } from "@/lib/detection";
 import { formatAxisTime, formatLatency } from "@/lib/format";
 import type { SeriesPoint } from "@/lib/types";
 import { ChartTooltip } from "./chart-tooltip";
 
 interface LatencyChartProps {
   data: SeriesPoint[];
+  anomalies: Map<number, SeriesAnomaly>;
 }
 
 const SERIES = [
@@ -24,7 +27,7 @@ const SERIES = [
   { key: "p99", label: "p99", color: "var(--chart-rose)" },
 ] as const;
 
-export const LatencyChart = memo(function LatencyChart({ data }: LatencyChartProps) {
+export const LatencyChart = memo(function LatencyChart({ data, anomalies }: LatencyChartProps) {
   const latest = data.length > 0 ? data[data.length - 1] : null;
 
   return (
@@ -37,6 +40,12 @@ export const LatencyChart = memo(function LatencyChart({ data }: LatencyChartPro
               {series.label}
             </span>
           ))}
+          {anomalies.size > 0 ? (
+            <span className="inline-flex items-center gap-1.5 text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              {anomalies.size} anomalies
+            </span>
+          ) : null}
         </div>
         <span className="font-mono text-[10px] text-slate-500">
           p95 <span className="text-amber-300">{latest ? formatLatency(latest.p95) : "—"}</span>
@@ -52,6 +61,15 @@ export const LatencyChart = memo(function LatencyChart({ data }: LatencyChartPro
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 4, left: -10, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 5" />
+              {[...anomalies.values()].map((anomaly) => (
+                <ReferenceLine
+                  key={anomaly.t}
+                  x={anomaly.t}
+                  stroke="var(--chart-amber)"
+                  strokeDasharray="2 4"
+                  strokeOpacity={0.55}
+                />
+              ))}
               <XAxis
                 dataKey="t"
                 tickFormatter={(value: number) => formatAxisTime(value)}

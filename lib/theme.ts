@@ -1,10 +1,14 @@
 "use client";
 
 export type Theme = "dark" | "light";
+export type Accent = "emerald" | "cyan" | "violet" | "amber";
 
 const STORAGE_KEY = "pulseboard-theme";
+const ACCENT_KEY = "pulseboard-accent";
 const listeners = new Set<() => void>();
+const accentListeners = new Set<() => void>();
 let cachedTheme: Theme | null = null;
+let cachedAccent: Accent | null = null;
 
 function readStoredTheme(): Theme {
   try {
@@ -64,4 +68,60 @@ export function setTheme(theme: Theme): void {
 
 export function toggleTheme(): void {
   setTheme(getThemeSnapshot() === "light" ? "dark" : "light");
+}
+
+function isAccent(value: string | null): value is Accent {
+  return value === "emerald" || value === "cyan" || value === "violet" || value === "amber";
+}
+
+function readStoredAccent(): Accent {
+  try {
+    const stored = window.localStorage.getItem(ACCENT_KEY);
+    return isAccent(stored) ? stored : "emerald";
+  } catch {
+    return "emerald";
+  }
+}
+
+function applyAccent(accent: Accent): void {
+  document.documentElement.dataset.accent = accent;
+}
+
+export function getAccentSnapshot(): Accent {
+  cachedAccent ??= readStoredAccent();
+  return cachedAccent;
+}
+
+export function getAccentServerSnapshot(): Accent {
+  return "emerald";
+}
+
+export function subscribeAccent(listener: () => void): () => void {
+  accentListeners.add(listener);
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== ACCENT_KEY) return;
+    cachedAccent = isAccent(event.newValue) ? event.newValue : "emerald";
+    applyAccent(cachedAccent);
+    listener();
+  };
+
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    accentListeners.delete(listener);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+export function setAccent(accent: Accent): void {
+  cachedAccent = accent;
+  applyAccent(accent);
+
+  try {
+    window.localStorage.setItem(ACCENT_KEY, accent);
+  } catch {
+    // Storage can be unavailable in private or restricted contexts.
+  }
+
+  for (const listener of accentListeners) listener();
 }

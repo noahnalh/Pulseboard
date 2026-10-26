@@ -30,6 +30,7 @@ export interface ServiceStat {
   count: number;
   errors: number;
   p95: number;
+  status: Record<StatusClass, number>;
 }
 
 export interface RegionStat {

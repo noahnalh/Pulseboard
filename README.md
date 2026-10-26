@@ -13,29 +13,61 @@ command. It can also consume real telemetry from Kafka or from any HTTP producer
 - **Next.js 16** (App Router, Node runtime route handlers)
 - **TypeScript**
 - **Tailwind CSS 4**
-- **Recharts** for live charts
+- **Recharts** for latency and response-mix charts
+- **Canvas 2D** for the high-rate throughput chart
 - **KafkaJS** with an optional Apache Kafka broker (Docker Compose included)
 
 ## What it does
 
 Pulseboard shows live event traffic across the following views:
 
-- **Throughput** — successful and failed events per second
+- **Throughput** — successful and failed events per second, rendered on a custom canvas
 - **Latency percentiles** — p50, p95, and p99 response times
-- **Response mix** — share of 2xx, 3xx, 4xx, and 5xx responses
-- **Edge regions** — request volume and 5xx rate by region
-- **Top services** — volume, p95 latency, and error counts per service
+- **Response mix** — donut view or a service-to-outcome traffic ribbon
+- **Edge regions** — request volume and 5xx rate on a constellation map
+- **Service health** — ranked volume or a 2xx/3xx/4xx/5xx status matrix
 - **Event stream** — a rolling, newest-first feed with search, service/5xx filters, and CSV export
 - **Alert center** — server-side threshold rules with severity, acknowledgment, and resolution history
+- **Wallboard mode** — a focused, full-viewport presentation view with `Esc` to exit
 
 KPIs and service/region aggregations use a 60-second window. The charts can switch between
 60-second, 2-minute, and 4-minute windows, and they mark statistical anomalies using a robust
 z-score against a trailing baseline.
 
 The header shows connection state, ingest source, subscriber count, uptime, a UTC clock, an
-active-alert badge, and a light/dark theme switcher (persisted in `localStorage`). A control
-bar lets you change the simulated ingest rate, chart window, pause rendering, inject an error
-spike, trigger a traffic surge, or reset the demo data.
+active-alert badge, a persisted light/dark theme switcher, four accent palettes, and a
+wallboard toggle. A control bar lets you change the simulated ingest rate, chart window, pause
+rendering, inject an error spike, trigger a traffic surge, or reset the demo data.
+
+### Visual system
+
+The interface uses an ambient mission-control treatment: drifting accent light, a faint grid,
+glass panels with edge lighting, animated KPI gauges, a pulsing regional constellation, reveal
+staggering, and an alert-edge glow when incidents are active. Accent palettes (emerald, cyan,
+violet, amber) and the dark/light theme are stored in `localStorage` and applied before paint
+via an inline script to avoid flashing.
+
+`prefers-reduced-motion` disables ambient drift, reveal animations, pulses, and other ambient
+motion while keeping all data visible.
+
+Wallboard mode fills the viewport, removes the control bar and footer, and keeps the live
+telemetry, alerts, and status views visible. Press `Esc` or use the header button to exit.
+
+### Rendering performance
+
+The Throughput chart is a custom two-canvas renderer rather than a React chart:
+
+- A base canvas redraws area fills, lines, axes, and anomaly bands only when data, size, or
+  theme changes.
+- A separate overlay canvas draws the crosshair and tooltip dot on pointer movement, so hover
+  does not redraw the full series.
+- Canvas backing stores are DPR-scaled and recomputed through `ResizeObserver`.
+- Draws are coalesced with `requestAnimationFrame`, paused while the document is hidden, and
+  skipped when the chart is off-screen via `IntersectionObserver`.
+- Theme and accent changes are picked up with a `MutationObserver` and re-read from CSS
+  variables.
+- KPI count-ups write directly to DOM text refs rather than re-rendering the component tree.
+- The event feed is capped, memoized, and uses `content-visibility` for off-screen rows.
 
 ### Alert engine
 
@@ -73,7 +105,8 @@ Server-side aggregation keeps the browser workload flat even as event volume ris
 - The client parses frames with `EventSource`, batches React updates with
   `requestAnimationFrame`, deduplicates replayed events, and caps the event feed at 220 rows.
 - Event filtering and CSV export run entirely in the browser over the capped feed.
-- Rows and charts are memoized, and chart animations are disabled to avoid rendering spikes.
+- Rows and charts are memoized, Recharts animations are disabled, and Throughput updates
+  directly through canvas to keep render cost flat as ingest rates rise.
 
 Kafka is optional and works in two modes:
 
@@ -263,13 +296,15 @@ app/
   layout.tsx
   page.tsx
 components/
-  dashboard.tsx     layout composition
-  kpi-strip.tsx
-  throughput-chart.tsx
+  dashboard.tsx     layout composition, wallboard mode
+  header.tsx        status, theme, accents, wallboard toggle
+  accent-picker.tsx accent palette popover
+  kpi-strip.tsx     animated KPIs + radial gauges
+  throughput-chart.tsx custom dual-canvas chart
   latency-chart.tsx
-  status-panel.tsx
-  services-panel.tsx
-  regions-panel.tsx
+  status-panel.tsx  response mix + traffic ribbon
+  services-panel.tsx ranked list + status matrix
+  regions-panel.tsx edge constellation
   event-feed.tsx    search, filters, CSV export
   alert-center.tsx  alert banner + center drawer
   control-bar.tsx   rate, chart window, scenarios
@@ -281,6 +316,7 @@ lib/
     runtime.ts      buffers, aggregation, SSE fan-out
     kafka.ts        optional Kafka producer/consumer bridge
   detection.ts      robust z-score anomaly detection
+  theme.ts          theme + accent persistence
   use-event-stream.ts
   format.ts
   types.ts

@@ -1,7 +1,7 @@
 "use client";
 
 import { Database, Gauge, Timer, TriangleAlert } from "lucide-react";
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import {
   cn,
   formatCompact,
@@ -42,6 +42,97 @@ const ACCENTS = {
 } as const;
 
 type AccentKey = keyof typeof ACCENTS;
+
+function AnimatedValue({
+  value,
+  format,
+  className,
+}: {
+  value: number;
+  format: (value: number) => string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const previousRef = useRef(value);
+
+  useEffect(() => {
+    const start = previousRef.current;
+    const end = value;
+    previousRef.current = value;
+    const element = ref.current;
+    if (!element) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (start === end || reduced) {
+      element.textContent = format(end);
+      return;
+    }
+
+    let frame = 0;
+    const started = performance.now();
+    const duration = 320;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - started) / duration);
+      const eased = 1 - (1 - progress) ** 3;
+      element.textContent = format(start + (end - start) * eased);
+      if (progress < 1) frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [format, value]);
+
+  return <span ref={ref} className={className} aria-label={format(value)} />;
+}
+
+function RadialGauge({
+  value,
+  max,
+  color,
+  label,
+}: {
+  value: number;
+  max: number;
+  color: string;
+  label: string;
+}) {
+  const radius = 16;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(1, value / Math.max(max, 0.0001)));
+  const offset = circumference * (1 - progress);
+
+  return (
+    <div className="relative h-10 w-10" title={label} aria-label={label}>
+      <svg viewBox="0 0 40 40" className="h-10 w-10 -rotate-90" aria-hidden="true">
+        <circle
+          cx="20"
+          cy="20"
+          r={radius}
+          fill="none"
+          stroke="var(--chart-muted)"
+          strokeWidth="2.5"
+        />
+        <circle
+          cx="20"
+          cy="20"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{
+            transition: "stroke-dashoffset 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+            filter: `drop-shadow(0 0 4px ${color}66)`,
+          }}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center font-mono text-[8px] tabular-nums text-slate-400">
+        {Math.round(progress * 100)}%
+      </span>
+    </div>
+  );
+}
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {
   const gradientId = `spark-${useId().replace(/:/g, "")}`;
@@ -85,21 +176,9 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-function Meter({ value, color }: { value: number; color: string }) {
-  const width = Math.min(100, Math.max(2, value));
-  return (
-    <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
-      <div
-        className="h-full rounded-full transition-[width] duration-700 ease-out"
-        style={{ width: `${width}%`, backgroundColor: color, boxShadow: `0 0 10px ${color}66` }}
-      />
-    </div>
-  );
-}
-
 interface MetricCardProps {
   label: string;
-  value: string;
+  value: ReactNode;
   unit: string;
   icon: ReactNode;
   accent: AccentKey;
@@ -167,7 +246,7 @@ export function KpiStrip({ metrics, sparkline, meta }: KpiStripProps) {
     <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
         label="Throughput"
-        value={formatInteger(metrics.eventsPerSec)}
+        value={<AnimatedValue value={metrics.eventsPerSec} format={formatInteger} />}
         unit="events/sec"
         icon={<Gauge className="h-3.5 w-3.5" />}
         accent="emerald"
@@ -182,7 +261,12 @@ export function KpiStrip({ metrics, sparkline, meta }: KpiStripProps) {
 
       <MetricCard
         label="Error rate"
-        value={formatPercent(metrics.errorRate)}
+        value={
+          <AnimatedValue
+            value={metrics.errorRate}
+            format={(value) => formatPercent(value, 1)}
+          />
+        }
         unit="5xx"
         icon={<TriangleAlert className="h-3.5 w-3.5" />}
         accent={errorAccent}
@@ -193,15 +277,18 @@ export function KpiStrip({ metrics, sparkline, meta }: KpiStripProps) {
           </span>
         }
         visual={
-          <div className="w-[92px]">
-            <Meter value={(metrics.errorRate / 20) * 100} color={ACCENTS[errorAccent].line} />
-          </div>
+          <RadialGauge
+            value={metrics.errorRate}
+            max={12}
+            color={ACCENTS[errorAccent].line}
+            label={`${formatPercent(metrics.errorRate)} error rate against the 12% critical threshold`}
+          />
         }
       />
 
       <MetricCard
         label="p95 latency"
-        value={formatLatency(metrics.p95)}
+        value={<AnimatedValue value={metrics.p95} format={formatLatency} />}
         unit="p95"
         icon={<Timer className="h-3.5 w-3.5" />}
         accent={latencyAccent}
@@ -212,15 +299,18 @@ export function KpiStrip({ metrics, sparkline, meta }: KpiStripProps) {
           </span>
         }
         visual={
-          <div className="w-[92px]">
-            <Meter value={(metrics.p95 / 1000) * 100} color={ACCENTS[latencyAccent].line} />
-          </div>
+          <RadialGauge
+            value={metrics.p95}
+            max={900}
+            color={ACCENTS[latencyAccent].line}
+            label={`${formatLatency(metrics.p95)} p95 latency against the 900ms critical threshold`}
+          />
         }
       />
 
       <MetricCard
         label="Events captured"
-        value={formatCompact(metrics.totalEvents)}
+        value={<AnimatedValue value={metrics.totalEvents} format={formatCompact} />}
         unit="total"
         icon={<Database className="h-3.5 w-3.5" />}
         accent="cyan"

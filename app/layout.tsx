@@ -13,7 +13,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-const themeScript = `(function(){try{var t=localStorage.getItem("pulseboard-theme");var l=t==="light";if(l){document.documentElement.classList.add("light");document.documentElement.style.colorScheme="light";}var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",l?"#eef2f7":"#04060a");}}catch(e){}})();`;
+const themeScript = `(function(){try{var t=localStorage.getItem("pulseboard-theme");var l=t==="light";if(l){document.documentElement.classList.add("light");document.documentElement.style.colorScheme="light";}var a=localStorage.getItem("pulseboard-accent");if(a!=="cyan"&&a!=="violet"&&a!=="amber"){a="emerald";}document.documentElement.dataset.accent=a;var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",l?"#eef2f7":"#04060a");}}catch(e){}})();`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

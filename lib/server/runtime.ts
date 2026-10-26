@@ -309,19 +309,29 @@ class Runtime {
 
     let errorCount = 0;
     const statusCounts: Record<StatusClass, number> = { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0 };
-    const serviceMap = new Map<string, { count: number; errors: number; latencies: number[] }>();
+    const serviceMap = new Map<
+      string,
+      { count: number; errors: number; latencies: number[]; status: Record<StatusClass, number> }
+    >();
     const regionMap = new Map<string, { count: number; errors: number }>();
 
     for (const event of window) {
-      statusCounts[statusClass(event.status)] += 1;
+      const eventClass = statusClass(event.status);
+      statusCounts[eventClass] += 1;
       if (event.status >= 500) errorCount += 1;
 
       let service = serviceMap.get(event.service);
       if (!service) {
-        service = { count: 0, errors: 0, latencies: [] };
+        service = {
+          count: 0,
+          errors: 0,
+          latencies: [],
+          status: { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0 },
+        };
         serviceMap.set(event.service, service);
       }
       service.count += 1;
+      service.status[eventClass] += 1;
       if (event.status >= 500) service.errors += 1;
       service.latencies.push(event.latencyMs);
 
@@ -344,6 +354,7 @@ class Runtime {
           count: stat.count,
           errors: stat.errors,
           p95: percentile(sorted, 95),
+          status: stat.status,
         };
       })
       .sort((a, b) => b.count - a.count)

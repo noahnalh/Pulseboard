@@ -1,9 +1,19 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Activity, Pause, Play, Radio, ShieldAlert, Users } from "lucide-react";
+import {
+  Activity,
+  Maximize2,
+  Minimize2,
+  Pause,
+  Play,
+  Radio,
+  ShieldAlert,
+  Users,
+} from "lucide-react";
 import { cn, formatClock } from "@/lib/format";
 import type { ConnectionState, StreamMeta } from "@/lib/types";
+import { AccentPicker } from "./accent-picker";
 import { ThemeToggle } from "./theme-toggle";
 
 interface HeaderProps {
@@ -12,7 +22,9 @@ interface HeaderProps {
   meta: StreamMeta | null;
   alertCount: number;
   criticalAlerts: number;
+  wallboard: boolean;
   onOpenAlerts: () => void;
+  onToggleWallboard: () => void;
   onTogglePause: () => void;
 }
 
@@ -69,7 +81,9 @@ export function Header({
   meta,
   alertCount,
   criticalAlerts,
+  wallboard,
   onOpenAlerts,
+  onToggleWallboard,
   onTogglePause,
 }: HeaderProps) {
   const statusUi = STATUS_UI[status];
@@ -104,34 +118,40 @@ export function Header({
             </span>
           </div>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Realtime event telemetry · 60s rolling window
+            {wallboard
+              ? "Wallboard mode · press Esc to exit"
+              : "Realtime event telemetry · 60s rolling window"}
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.16em]",
-            kafkaTone,
-          )}
-          title={
-            meta?.kafkaMode === "off"
-              ? "In-process simulator feeding the event bus"
-              : `Kafka ${meta?.kafkaMode ?? ""} mode · ${meta?.kafkaStatus ?? "off"}`
-          }
-        >
-          <Radio className="h-3 w-3" />
-          {kafkaSource}
-          {meta && meta.kafkaMode !== "off" ? (
-            <span className="text-[8px] opacity-70">{meta.kafkaStatus}</span>
-          ) : null}
-        </span>
+        {!wallboard ? (
+          <>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.16em]",
+                kafkaTone,
+              )}
+              title={
+                meta?.kafkaMode === "off"
+                  ? "In-process simulator feeding the event bus"
+                  : `Kafka ${meta?.kafkaMode ?? ""} mode · ${meta?.kafkaStatus ?? "off"}`
+              }
+            >
+              <Radio className="h-3 w-3" />
+              {kafkaSource}
+              {meta && meta.kafkaMode !== "off" ? (
+                <span className="text-[8px] opacity-70">{meta.kafkaStatus}</span>
+              ) : null}
+            </span>
 
-        <span className="hidden items-center gap-1.5 rounded-full border border-edge bg-ink-850 px-2.5 py-1 font-mono text-[10px] text-slate-400 sm:inline-flex">
-          <Users className="h-3 w-3 text-slate-500" />
-          {meta?.subscribers ?? 1} {meta?.subscribers === 1 ? "client" : "clients"}
-        </span>
+            <span className="hidden items-center gap-1.5 rounded-full border border-edge bg-ink-850 px-2.5 py-1 font-mono text-[10px] text-slate-400 sm:inline-flex">
+              <Users className="h-3 w-3 text-slate-500" />
+              {meta?.subscribers ?? 1} {meta?.subscribers === 1 ? "client" : "clients"}
+            </span>
+          </>
+        ) : null}
 
         <span className="hidden rounded-full border border-edge bg-ink-850 px-2.5 py-1 md:inline-flex">
           <UtcClock />
@@ -155,21 +175,37 @@ export function Header({
           <span className="tabular-nums">{alertCount}</span>
         </button>
 
-        <ThemeToggle />
+        {!wallboard ? (
+          <>
+            <AccentPicker />
+            <ThemeToggle />
+
+            <button
+              type="button"
+              onClick={onTogglePause}
+              aria-pressed={paused}
+              className={cn(
+                "inline-flex h-[30px] items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors",
+                paused
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15"
+                  : "border-edge bg-ink-850 text-slate-300 hover:border-edge-bright hover:text-white",
+              )}
+            >
+              {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              {paused ? "Resume" : "Pause"}
+            </button>
+          </>
+        ) : null}
 
         <button
           type="button"
-          onClick={onTogglePause}
-          aria-pressed={paused}
-          className={cn(
-            "inline-flex h-[30px] items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors",
-            paused
-              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15"
-              : "border-edge bg-ink-850 text-slate-300 hover:border-edge-bright hover:text-white",
-          )}
+          onClick={onToggleWallboard}
+          aria-pressed={wallboard}
+          aria-label={wallboard ? "Exit wallboard mode" : "Enter wallboard mode"}
+          title={wallboard ? "Exit wallboard (Esc)" : "Wallboard mode"}
+          className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border border-edge bg-ink-850 text-slate-400 transition-colors hover:border-edge-bright hover:text-white"
         >
-          {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
-          {paused ? "Resume" : "Pause"}
+          {wallboard ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
         </button>
 
         <span

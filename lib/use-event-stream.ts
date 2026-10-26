@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import type {
   ConnectionState,
   ControlPayload,
@@ -60,13 +60,15 @@ export function useEventStream(): EventStreamState {
         }
         if (fresh.length > 0) {
           fresh.reverse();
-          setEvents((previous) => {
-            const merged = fresh.concat(previous);
-            if (merged.length > MAX_FEED_EVENTS) {
-              const dropped = merged.splice(MAX_FEED_EVENTS);
-              for (const event of dropped) seen.delete(event.id);
-            }
-            return merged;
+          startTransition(() => {
+            setEvents((previous) => {
+              const merged = fresh.concat(previous);
+              if (merged.length > MAX_FEED_EVENTS) {
+                const dropped = merged.splice(MAX_FEED_EVENTS);
+                for (const event of dropped) seen.delete(event.id);
+              }
+              return merged;
+            });
           });
         }
       }

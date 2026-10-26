@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { cn, formatInteger, formatPercent, STATUS_TONES } from "@/lib/format";
 import type { ServiceStat, StatusSlice, StreamMetrics } from "@/lib/types";
 
@@ -138,6 +137,18 @@ export const StatusPanel = memo(function StatusPanel({
   const total = status.reduce((sum, slice) => sum + slice.value, 0);
   const successRate =
     metrics?.successRate ?? (total > 0 ? (1 - (status[3]?.value ?? 0) / total) * 100 : 0);
+  let cursor = 0;
+  const stops = status
+    .filter((slice) => slice.value > 0)
+    .map((slice) => {
+      const start = cursor;
+      cursor += (slice.value / total) * 100;
+      return `${STATUS_TONES[slice.name].hex} ${start}% ${cursor}%`;
+    });
+  const donutBackground =
+    total > 0
+      ? `conic-gradient(${stops.join(", ")})`
+      : "conic-gradient(var(--chart-muted) 0% 100%)";
 
   return (
     <div className="flex h-full flex-col">
@@ -162,30 +173,14 @@ export const StatusPanel = memo(function StatusPanel({
 
       {mode === "donut" ? (
         <div className="relative mx-auto h-[164px] w-full max-w-[204px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={total > 0 ? status : [{ name: "2xx", value: 1 }]}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={54}
-                outerRadius={72}
-                paddingAngle={total > 0 ? 2 : 0}
-                stroke="none"
-                isAnimationActive={false}
-              >
-                {total > 0 ? (
-                  status.map((slice) => (
-                    <Cell key={slice.name} fill={STATUS_TONES[slice.name].hex} fillOpacity={0.9} />
-                  ))
-                ) : (
-                  <Cell fill="var(--chart-muted)" />
-                )}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <div
+            className="absolute inset-0 rounded-full opacity-90"
+            style={{
+              background: donutBackground,
+              maskImage: "radial-gradient(circle, transparent 72%, #000 73%)",
+              WebkitMaskImage: "radial-gradient(circle, transparent 72%, #000 73%)",
+            }}
+          />
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-[22px] font-semibold leading-none text-white tabular-nums">
               {total > 0 ? formatPercent(successRate) : "—"}
